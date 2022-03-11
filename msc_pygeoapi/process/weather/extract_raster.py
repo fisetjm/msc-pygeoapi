@@ -30,12 +30,14 @@
 import click
 import json
 import logging
+import sqlite3 
 
 from elasticsearch import Elasticsearch, exceptions
 import rasterio
 import rasterio.mask
 from rasterio.crs import CRS
 from rasterio.io import MemoryFile
+from DBUtils import ForecastDBUtil
 
 LOGGER = logging.getLogger(__name__)
 
@@ -72,7 +74,21 @@ PROCESS_METADATA = {
         },
         'minOccurs': 1,
         'maxOccurs': 1
-    }, {
+    },{
+        'id': 'station',
+        'title': 'station',
+        'input': {
+            'literalDataDomain': {
+                'dataType': 'string',
+                'valueDefinition': {
+                    'anyValue': True
+                }
+            }
+        },
+        'minOccurs': 0,
+        'maxOccurs': 1
+    },
+         {
         'id': 'forecast_hours_',
         'title': 'forecast_hours_',
         'input': {
@@ -106,7 +122,7 @@ PROCESS_METADATA = {
                 'mimeType': 'application/json'
             }]
         },
-        'minOccurs': 1,
+        'minOccurs': 0,
         'maxOccurs': 1
     }],
     'outputs': [{
@@ -260,6 +276,7 @@ def get_line(raster_list, input_geojson):
             data_type = "Wind Direction Data"
         if "WIND" in raster_path:
             data_type = "Wind Speed Data"
+        #TODO: Add data_type description for many variables
 
         try:
             with rasterio.open(raster_path) as src:
@@ -543,7 +560,7 @@ def extract_raster_main(model, forecast_hours_, model_run, input_geojson):
         layers.append(model.format(layer))
 
     result = get_files(layers, forecast_hours_, model_run)
-
+    
     raster_list = []
     forecast_hours = set()
     for element in result:
@@ -597,8 +614,14 @@ try:
             model = data["model"]
             forecast_hours_ = data["forecast_hours_"]
             model_run = data["model_run"]
-            input_geojson = data["input_geojson"]
-
+            station=data.get('station',None)
+            if station is not None:
+                # MORE a PoC here using a local DB:
+                forecast_db = ForecastMinimalGeometryDBUtil(db_file_path=os.path.join(os.path.basedir(__file__),'ForecastStations.sqlite3'))
+                station_id = forecast.get_station_id_from_identifier(station)
+                input_geojson = forecast_db.get_station_basin_geojson_from_station_id(id)
+            else:
+                input_geojson = data["input_geojson"]
             output_geojson = extract_raster_main(
                 model, forecast_hours_, model_run, input_geojson)
             return 'application/json', output_geojson
