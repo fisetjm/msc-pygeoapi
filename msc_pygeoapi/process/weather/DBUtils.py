@@ -3,7 +3,7 @@ import sqlite3
 import collections
 from itertools import islice
 from dataclasses import dataclass
-from typing import Iterable,Union,List,Tuple,ClassVar,Dict,ByteString,Sequence
+from typing import Iterable, Union, List, Tuple, ClassVar, Dict, ByteString, Sequence
 from datetime import datetime
 import pytz
 from pyrfc3339.utils import FixedOffset
@@ -13,10 +13,11 @@ from builtins import isinstance
 
 logger = logging.getLogger(__name__)
 
+
 #===============================================================================
 # UTILITARY FUNCTIONS
 #===============================================================================
-def consume(iterator : Iterable, n : int =None) -> None:
+def consume(iterator: Iterable, n: int=None) -> None:
     """"Advance the iterator n-steps ahead. If n is none, consume
         entirely."""
     if n is None:
@@ -26,9 +27,10 @@ def consume(iterator : Iterable, n : int =None) -> None:
         # advance to the empty slice starting at position n
         next(islice(iterator, n, n), None)
 
-def parse(timestamp : str, 
-          utc : bool = False, 
-          produce_naive : bool = False):
+
+def parse(timestamp: str,
+          utc: bool=False,
+          produce_naive: bool=False):
     """
     See pyrfc3339.parse for actual doc.
     
@@ -52,7 +54,7 @@ def parse(timestamp : str,
                 tzinfo = pytz.utc
         else:
             if produce_naive is True:
-                raise ValueError("cannot produce a naive datetime from " +
+                raise ValueError("cannot produce a naive datetime from " + 
                                  "a local timestamp")
             else:
                 tzinfo = FixedOffset(int(match.group('time_houroffset')),
@@ -62,16 +64,16 @@ def parse(timestamp : str,
 
         if secfrac is None:
             microsecond = 0
-        elif float(secfrac) == 10**-(len(secfrac)-1):
-            microsecond=1
+        elif float(secfrac) == 10 ** -(len(secfrac) - 1):
+            microsecond = 1
         else:
-            diff = (len(secfrac)-1)-6
+            diff = (len(secfrac) - 1) - 6
             diff = 0 if diff < 0 else diff
-            ms=f'{secfrac:<07}'
-            microsecond=float(secfrac[:-diff]) if diff else float(secfrac)
-            microsecond = int(microsecond*10**6)
+            ms = f'{secfrac:<07}'
+            microsecond = float(secfrac[:-diff]) if diff else float(secfrac)
+            microsecond = int(microsecond * 10 ** 6)
             if ms[-1] == '1' and ms[-2] == '0':
-                microsecond+=1
+                microsecond += 1
 
         dt_out = datetime(year=int(match.group('date_fullyear')),
                           month=int(match.group('date_month')),
@@ -87,17 +89,19 @@ def parse(timestamp : str,
         return dt_out
     else:
         raise ValueError("timestamp does not conform to RFC 3339")
+
     
-def datetime_from_iso8601_string(text : Union[str,datetime]) -> datetime:
+def datetime_from_iso8601_string(text: Union[str, datetime]) -> datetime:
         """Parses the ISO8601 timestamp to a standard python datetime object"""
         try:
             return pyrfc3339.parse(text)
-        except TypeError as exc: # @UnusedVariable
+        except TypeError as exc:  # @UnusedVariable
             if type(text) == dt.datetime:
                 return text
-            #logger.exception(exc)
+            # logger.exception(exc)
+
             
-def convert_timestamp(val : ByteString) -> datetime:
+def convert_timestamp(val: ByteString) -> datetime:
     """
     Timezone aware datetime converter
     
@@ -121,24 +125,28 @@ def convert_timestamp(val : ByteString) -> datetime:
         # Adding functionality while still keeping the original naive datetime converter case
         # => '2019-01-01 00:00:00-05:00'
         # => '9999-12-31T23:59:59.9999999+00:00'
-        return datetime_from_iso8601_string(val.decode().replace(' ','T'))
+        return datetime_from_iso8601_string(val.decode().replace(' ', 'T'))
+
     
 # Mapping the timestamp datatype to the modified converter.
 sqlite3.register_converter("timestamp", convert_timestamp)
+
 
 #===============================================================================
 # Composition/Mixin
 #===============================================================================
 @dataclass
 class BaseObjectWithPostInit(object):
+
     def __post_init__(self):
         # just intercept the __post_init__ calls so they
         # aren't relayed to `object`
         pass
 
+
 @dataclass 
 class SQLiteConnect(BaseObjectWithPostInit):
-    db_file_path : str = None
+    db_file_path: str = None
     
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -147,8 +155,10 @@ class SQLiteConnect(BaseObjectWithPostInit):
         return sqlite3.connect(self.db_file_path,
                                detect_types=sqlite3.PARSE_DECLTYPES)
 
+
 @dataclass 
-class SQLiteStationTable:    
+class SQLiteStationTable: 
+
     def __post_init__(self):
         super().__post_init__()
     
@@ -167,7 +177,7 @@ class SQLiteStationTable:
             con.execute(sql)
             
     def get_station_id_from_identifier(self,
-                                       identifier : str
+                                       identifier: str
                                        ) -> int:
         with self.connect() as con:
             sql = """
@@ -184,32 +194,33 @@ class SQLiteStationTable:
                         None)
     
     def get_station_id_from_identifiers_and_ids(self,
-                                                identifiers : Sequence[str],
-                                                ids : Sequence[int]) -> list[int]:
+                                                identifiers: Sequence[str],
+                                                ids: Sequence[int]) -> list[int]:
         if station_identifier:
-                if isinstance(station_identifier,str):
+                if isinstance(station_identifier, str):
                     id = [self.get_station_id_from_identifier(station_identifier)]
-                elif isinstance(station_identifier,collections.abc.Sequence):
+                elif isinstance(station_identifier, collections.abc.Sequence):
                     id = [self.get_station_id_from_identifier(stn)
                           for stn in station_identifier 
                           if self.get_station_id_from_identifier(stn)]
         if station_id:
-            if isinstance(station_identifier,collections.abc.Sequence) and id:
+            if isinstance(station_identifier, collections.abc.Sequence) and id:
                 station_id.extend(id)
             else:
                 station_id = [station_id]
         return station_id
     
     def get_station_id_in_clause_from_identifiers_and_ids(self,
-                                                      identifiers : Sequence[str],
-                                                      ids : Sequence[int]) -> str:
+                                                      identifiers: Sequence[str],
+                                                      ids: Sequence[int]) -> str:
         return ','.join(f"'{stn}'" 
                               for 
                                 stn 
                               in 
-                                self.get_station_id_from_identifiers_and_ids(identifiers, 
+                                self.get_station_id_from_identifiers_and_ids(identifiers,
                                                                              ids)
                              )
+
     
 @dataclass  
 class SQLiteTriggerSwitch:
@@ -246,11 +257,14 @@ class SQLiteTriggerSwitch:
                   UPDATE TriggerStatus SET triggers_are_on=1
                   """
             con.execute(sql) 
+
             
 @dataclass
-class SQLiteWithStationAndTrigger(SQLiteStationTable,SQLiteTriggerSwitch,SQLiteConnect):
+class SQLiteWithStationAndTrigger(SQLiteStationTable, SQLiteTriggerSwitch, SQLiteConnect):
+
     def __post_init__(self) -> None:
         super().__post_init__()
+
 
 @dataclass
 class SQLiteJSONGeometryType:
@@ -261,16 +275,16 @@ class SQLiteJSONGeometryType:
     
     Assuming GeoJSON text
     """
-    geometry_type : str = None
-    forecast_station_name : str = None
-    forecast_basin_name : str = None
+    geometry_type: str = None
+    forecast_station_name: str = None
+    forecast_basin_name: str = None
     
     def __post_init__(self):
         self.geometry_type = 'TEXT'
         super().__post_init__()
         
     def get_station_location_geojson_from_station_id(self,
-                                     station_id : int
+                                     station_id: int
                                      ) -> str:
         with self.connect() as con:
             sql = f"""SELECT 
@@ -280,10 +294,10 @@ class SQLiteJSONGeometryType:
                      WHERE
                         station_id = ?
                    """
-            return next(con.execute(sql,(station_id,)),None)
+            return next(con.execute(sql, (station_id,)), None)
     
     def get_station_basin_geojson_from_station_id(self,
-                                                  station_id : int
+                                                  station_id: int
                                                   ) -> str:
         with self.connect() as con:
             sql = f"""SELECT 
@@ -293,14 +307,15 @@ class SQLiteJSONGeometryType:
                      WHERE
                         station_id = ?
                    """
-            return next(con.execute(sql,(station_id,)),None)
+            return next(con.execute(sql, (station_id,)), None)
         
     def get_geom_insert_sql(self,
-                            geom : str) -> str:
+                            geom: str) -> str:
         """
         Assuming the insert is already GeoJSON
         """
         return geom
+
     
 @dataclass
 class SpatialiteGeometryType:
@@ -310,18 +325,18 @@ class SpatialiteGeometryType:
     From a Spatialite Geometry column
     see: http://www.gaia-gis.it/gaia-sins/spatialite-sql-5.0.1.html
     """
-    geometry_type : str = None
-    forecast_station_name : str = None
-    forecast_basin_name : str = None
+    geometry_type: str = None
+    forecast_station_name: str = None
+    forecast_basin_name: str = None
     
     def __post_init__(self) -> None:
         self.geometry_type = 'Geometry'
         super().__post_init__()
     
     def get_station_location_geojson_from_station_id(self,
-                                    station_id : int) -> str:
+                                    station_id: int) -> str:
         with self.connect() as con:
-            #second term in precision, 4 digits here, default is 15
+            # second term in precision, 4 digits here, default is 15
             sql = f"""SELECT 
                         AsGeoJSON(geometry,4)
                      FROM
@@ -329,12 +344,12 @@ class SpatialiteGeometryType:
                      WHERE
                         station_id = ?
                    """
-            return next(con.execute(sql,(station_id,)),None)
+            return next(con.execute(sql, (station_id,)), None)
         
     def get_station_basin_geojson_from_station_id(self,
-                                                  station_id : int) -> str:
+                                                  station_id: int) -> str:
         with self.connect() as con:
-            #second term in precision, 4 digits here, default is 15
+            # second term in precision, 4 digits here, default is 15
             sql = f"""SELECT 
                         AsGeoJSON(geometry,4)
                      FROM
@@ -342,7 +357,7 @@ class SpatialiteGeometryType:
                      WHERE
                         station_id = ?
                    """
-            return next(con.execute(sql,(station_id,)),None)
+            return next(con.execute(sql, (station_id,)), None)
     
 
 @dataclass
@@ -362,24 +377,24 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
     """
     # Approved and "not approved views"
     # Add other approval levels and where clauses if need be
-    where_clauses : ClassVar[Dict[str,str]] = None
+    where_clauses: ClassVar[Dict[str, str]] = None
     # Tables of the type int->description
-    point_meta_int_tables : ClassVar[Tuple[str]] = None
+    point_meta_int_tables: ClassVar[Tuple[str]] = None
     # Tables of the type str->description
-    point_meta_str_tables : ClassVar[Tuple[str]] = None
+    point_meta_str_tables: ClassVar[Tuple[str]] = None
     
     def __post_init__(self) -> None:
         super().__post_init__()
-        AquariusDataDBUtil.where_clauses = {'approved' : '>= 1100',
-                              'preliminary' : '< 1100'}
+        AquariusDataDBUtil.where_clauses = {'approved': '>= 1100',
+                              'preliminary': '< 1100'}
         AquariusDataDBUtil.point_meta_int_tables = ('Approval',)
-        AquariusDataDBUtil.point_meta_str_tables = ('Qualifier','Grade',)
+        AquariusDataDBUtil.point_meta_str_tables = ('Qualifier', 'Grade',)
     
     def get_table_name(self,
-                       aggregate_name : str ='daily') -> None:
-        tb_name : str = (f"TS{aggregate_name}Aggregate"
+                       aggregate_name: str='daily') -> None:
+        tb_name: str = (f"TS{aggregate_name}Aggregate"
                     if 
-                    aggregate_name.lower() in ('daily','monthly','yearly','hourly')
+                    aggregate_name.lower() in ('daily', 'monthly', 'yearly', 'hourly')
                     else 
                         'AquariusTimeSeriesData'
                         if 
@@ -392,7 +407,7 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
         return tb_name
     
     def get_geom_insert_sql(self,
-                            geom : str) -> str:
+                            geom: str) -> str:
         """
         Assuming the insert is already GeoJSON
         """
@@ -403,7 +418,7 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
     #===========================================================================
     
     def create_triggers_for_aggregate(self,
-                                      aggregate_name : str = 'daily'
+                                      aggregate_name: str='daily'
                                       ) -> None:
         self.create_trigger_status_table()
         # Update log
@@ -421,9 +436,9 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
                                              action='delete')
         
     def create_delete_or_insert_changes_log_table(self,
-                                                  aggregate_name : str = 'daily',
+                                                  aggregate_name: str='daily',
                                                   action='INSERT') -> None:
-        table_name : str = self.get_table_name(aggregate_name=aggregate_name)
+        table_name: str = self.get_table_name(aggregate_name=aggregate_name)
         reference_row = 'new' if action.lower() == 'insert' else 'old'
         with self.connect() as con:
             sql = f"""
@@ -441,10 +456,10 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
             con.execute(sql)
             
     def create_delete_or_insert_trigger(self,
-                                        aggregate_name : str = 'daily',
+                                        aggregate_name: str='daily',
                                         action='INSERT') -> None:
         reference_row = 'new' if action.lower() == 'insert' else 'old'
-        table_name : str = self.get_table_name(aggregate_name=aggregate_name)
+        table_name: str = self.get_table_name(aggregate_name=aggregate_name)
         sql = f"""
               CREATE TRIGGER IF NOT EXISTS log_{table_name}_{action.upper()}
               AFTER {action.upper()}
@@ -474,10 +489,10 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
             con.execute(sql)
             
     def create_update_log_table(self,
-                                aggregate_name : str = 'daily'
+                                aggregate_name: str='daily'
                                 ) -> None:
         
-        table_name : str = self.get_table_name(aggregate_name=aggregate_name) 
+        table_name: str = self.get_table_name(aggregate_name=aggregate_name) 
         # TODO : Maybe add an index on the ts_id?
         with self.connect() as con:
             sql = f"""
@@ -499,9 +514,9 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
             con.execute(sql)
     
     def create_update_triggers(self,
-                                aggregate_name : str = 'daily'
+                                aggregate_name: str='daily'
                                 ) -> None:
-        table_name : str = self.get_table_name(aggregate_name=aggregate_name)
+        table_name: str = self.get_table_name(aggregate_name=aggregate_name)
         sql = f"""
               CREATE TRIGGER IF NOT EXISTS log_{table_name}_UPDATE
               AFTER UPDATE
@@ -537,14 +552,15 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
               """
         with self.connect() as con:
             con.execute(sql)
+
     #===========================================================================
     # AGGREGATES AND REALTIME TABLES CREATIONS
     #===========================================================================
     def create_aggregate_table(self,
-                               aggregate_name : str ='daily') -> None:
-        table_name : str = self.get_table_name(aggregate_name=aggregate_name)
+                               aggregate_name: str='daily') -> None:
+        table_name: str = self.get_table_name(aggregate_name=aggregate_name)
         with self.connect() as con:
-            sql : str = f"""CREATE TABLE IF NOT EXISTS {table_name}(
+            sql: str = f"""CREATE TABLE IF NOT EXISTS {table_name}(
                              timeseries_uniqueid TEXT NOT NULL,
                              station_id INTEGER REFERENCES Station(id),
                              parameter TEXT,
@@ -560,15 +576,15 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
             con.execute(sql)
             
     def create_aggregate_view(self,
-                              aggregate_name : str ='daily',
-                              approval_level : str ='Approved') -> None:
+                              aggregate_name: str='daily',
+                              approval_level: str='Approved') -> None:
         
-        table_name : str = self.get_table_name(aggregate_name=aggregate_name)
-        where_clause = self.where_clauses.get(approval_level.lower(),None)
+        table_name: str = self.get_table_name(aggregate_name=aggregate_name)
+        where_clause = self.where_clauses.get(approval_level.lower(), None)
         if not where_clause:
             raise AttributeError(f"PredictionsUtilDB has no view defined for {approval_level}")
         with self.connect() as con:
-            sql =f"""
+            sql = f"""
                     CREATE VIEW IF NOT EXISTS 
                         {table_name}{approval_level}
                     AS 
@@ -584,17 +600,17 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
         """
         consume(self.create_aggregate_table(aggregate_name)
                 for aggregate_name
-                    in ('daily','monthly','yearly','hourly','aq_data')
+                    in ('daily', 'monthly', 'yearly', 'hourly', 'aq_data')
                )
         
     def create_all_triggers(self) -> None:
         consume(self.create_triggers_for_aggregate(aggregate_name)
                 for aggregate_name
-                    in ('daily','monthly','yearly','hourly','aq_data')
+                    in ('daily', 'monthly', 'yearly', 'hourly', 'aq_data')
                )
     
     def create_point_meta_table(self,
-                                meta_name : str) -> None:
+                                meta_name: str) -> None:
         if meta_name.capitalize() in self.point_meta_int_tables:
             key_type = 'INT'
         elif meta_name.capitalize() in self.point_meta_str_tables:
@@ -605,7 +621,7 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
             raise AttributeError(f"PredictionsUtilDB does not have a point metadata table named {meta_name}")
         table_name = meta_name.capitalize()
         with self.connect() as con:
-            sql =f"""
+            sql = f"""
                     CREATE TABLE IF NOT EXISTS {table_name}(
                     id {key_type} PRIMARY KEY NOT NULL,
                     name TEXT
@@ -628,7 +644,6 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
             for approval_level in self.where_clauses:
                 self.create_aggregate_view(aggregate_name,
                                            approval_level.capitalize())
-                
     
     def create_daily_aggregate_table(self) -> None:
         self.create_aggregate_table()
@@ -651,18 +666,17 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
     #===========================================================================
     # INSERT , SELECT DELETE METHODS
     #===========================================================================
-    def insert_into_aggregate_table(self,timeseries_uniqueid : str ,
-                                    station_identifier : str = None,
-                                    station_id : int = None,
-                                    points : Sequence = None,
-                                    aggregate_name : str = 'daily') -> None:
+    def insert_into_aggregate_table(self, timeseries_uniqueid: str ,
+                                    station_identifier: str=None,
+                                    station_id: int=None,
+                                    points: Sequence=None,
+                                    aggregate_name: str='daily') -> None:
         """
         @param points: should be a list of point objects 
                        with a get_insert_tuple method that returns the correct fields.
                        If the points come from the operational pollign this is already the case.
         """
-        table_name : str = self.get_table_name(aggregate_name)
-        
+        table_name: str = self.get_table_name(aggregate_name)
         
         def yield_insert_tuple_from_points() -> Sequence[str,
                                                          datetime,
@@ -671,11 +685,11 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
                                                          str,
                                                          Sequence[int],
                                                          Sequence[str]]:
-            t : tuple[str] = (timeseries_uniqueid,)
+            t: tuple[str] = (timeseries_uniqueid,)
             for pt in points:
                 t_pt = pt.get_insert_tuple()
                 if t_pt:
-                    insert_tuple=[*t,
+                    insert_tuple = [*t,
                                   *t_pt
                                  ]
                     yield tuple(insert_tuple)
@@ -700,12 +714,12 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
                       qualifierCodes=excluded.qualifierCodes
                   ;
               """
-            con.executemany(sql,yield_insert_tuple_from_points())
+            con.executemany(sql, yield_insert_tuple_from_points())
     
     def delete_from_aggregate_table(self,
-                                    ts_unique_id_and_timestamp : List[Tuple[str,datetime]],
-                                    aggregate_name : str = 'daily') -> None:
-        table_name : str = self.get_table_name(aggregate_name)
+                                    ts_unique_id_and_timestamp: List[Tuple[str, datetime]],
+                                    aggregate_name: str='daily') -> None:
+        table_name: str = self.get_table_name(aggregate_name)
         with self.connect() as con:
             sql = f"""
                   DELETE FROM 
@@ -715,17 +729,16 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
                   AND
                       value_timestamp=?
                   """
-            con.executemany(sql,tuple(ts_unique_id_and_timestamp))
-        
+            con.executemany(sql, tuple(ts_unique_id_and_timestamp))
     
     def get_aggregate_table_data(self,
-                                 timeseries_uniqueid : str,
-                                 query_from : datetime = None,
-                                 query_to : datetime = None,
-                                 aggregate_name : str = 'daily') -> sqlite3.Cursor:
+                                 timeseries_uniqueid: str,
+                                 query_from: datetime=None,
+                                 query_to: datetime=None,
+                                 aggregate_name: str='daily') -> sqlite3.Cursor:
         
-        table_name : str = self.get_table_name(aggregate_name)
-        params=[timeseries_uniqueid]
+        table_name: str = self.get_table_name(aggregate_name)
+        params = [timeseries_uniqueid]
         where_clause_and = ''
         with self.connect() as con:
             if query_from and query_to:
@@ -733,7 +746,7 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
                                    AND
                                    value_timestamp BETWEEN ? and ?
                                    """
-                params.extend((query_from,query_to))
+                params.extend((query_from, query_to))
             elif query_from is not None:
                 where_clause_and = f"""
                                    AND
@@ -762,7 +775,8 @@ class AquariusDataDBUtil(SQLiteWithStationAndTrigger):
                   ORDER BY
                   value_timestamp
                   """
-            return con.execute(sql,tuple(params))
+            return con.execute(sql, tuple(params))
+
         
 @dataclass 
 class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
@@ -853,7 +867,6 @@ class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
                   END;
                   """
             con.execute(sql)
-            
     
     def create_forecast_basin_update_trigger(self) -> None:
         with self.connect() as con:
@@ -887,11 +900,11 @@ class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
             con.execute(sql)
             
     def insert_station_location(self,
-                             station_id : int = None,
-                             station_identifier : str = None,
-                             latitude : float = None,
-                             longitude : float = None,
-                             geometry : str = None) -> None:
+                             station_id: int=None,
+                             station_identifier: str=None,
+                             latitude: float=None,
+                             longitude: float=None,
+                             geometry: str=None) -> None:
         """
         Assuming the geometry is GeoJSON
         """
@@ -921,9 +934,9 @@ class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
                   """
     
     def insert_station_basin(self,
-                             station_id : int = None,
-                             station_identifier : str = None,
-                             geometry : str = None) -> None:
+                             station_id: int=None,
+                             station_identifier: str=None,
+                             geometry: str=None) -> None:
         """
         Assuming the geometry is GeoJSON
         """
@@ -960,6 +973,7 @@ class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
         self.create_station_table()
         self.create_forecast_geometry_tables()
         self.create_forecast_geometry_triggers()
+
         
 @dataclass 
 class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
@@ -978,8 +992,8 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
     """
     
     def __post_init__(self) -> None:
-        #self.forecast_station_name = 'ForecastStation'
-        #self.forecast_basin_name = 'ForecastBasin'
+        # self.forecast_station_name = 'ForecastStation'
+        # self.forecast_basin_name = 'ForecastBasin'
         super().__post_init__()
     
     #===========================================================================
@@ -1005,24 +1019,24 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
     # SELECT AND INSERT
     #===========================================================================
     def add_and_where_clause(self,
-                             where_clause : str,
-                             new_statement : str) -> str:
+                             where_clause: str,
+                             new_statement: str) -> str:
         if where_clause:
             return ''.join((where_clause_and,
                             '\nAND\n\t',
                             new_statement
                           ))
         else:
-            return ''.join(('\nAND\n\t',new_statement))
+            return ''.join(('\nAND\n\t', new_statement))
         
     def get_where_clause_for_select(self,
-                                    file_creation_time : datetime=None,
-                                    query_from : datetime = None,
-                                    query_to : datetime = None,
-                                    step_0_timestamp : datetime = None,
-                                    run : int = None,
-                                    step : int = None,
-                                    forecast_timestamp = None) -> Tuple[str,
+                                    file_creation_time: datetime=None,
+                                    query_from: datetime=None,
+                                    query_to: datetime=None,
+                                    step_0_timestamp: datetime=None,
+                                    run: int=None,
+                                    step: int=None,
+                                    forecast_timestamp=None) -> Tuple[str,
                                                              List[Union[str,
                                                                         datetime,
                                                                         int
@@ -1041,7 +1055,7 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
             where_clause = self.add_and_where_clause(where_clause,
                                                      'value_timestamp BETWEEN ? and ?'
                                                     )   
-            params.extend((query_from,query_to))
+            params.extend((query_from, query_to))
         elif query_from is not None:
             where_clause = self.add_and_where_clause(where_clause,
                                                      'value_timestamp >= ?'
@@ -1073,18 +1087,18 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
                                                      )
             params.append(forecast_timestamp)
         
-        return where_clause,params
+        return where_clause, params
         
     def get_forecast_data(self,
-                          station_identifier : Union[str,List[str]],
-                          station_id : Union[str,List[str]],
-                          file_creation_time : datetime=None,
-                          query_from : datetime = None,
-                          query_to : datetime = None,
-                          step_0_timestamp : datetime = None,
-                          run : int = None,
-                          step : int = None,
-                          forecast_timestamp = None,
+                          station_identifier: Union[str, List[str]],
+                          station_id: Union[str, List[str]],
+                          file_creation_time: datetime=None,
+                          query_from: datetime=None,
+                          query_to: datetime=None,
+                          step_0_timestamp: datetime=None,
+                          run: int=None,
+                          step: int=None,
+                          forecast_timestamp=None,
                           ) -> sqlite3.Cursor:
         """
         Selection per allowed based on:
@@ -1097,7 +1111,7 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
         station_id = self.get_station_id_in_clause_from_identifiers_and_ids(station_identifier,
                                                                             station_id)
                               
-        where_clause,params = self.get_where_clause_for_select(file_creation_time,
+        where_clause, params = self.get_where_clause_for_select(file_creation_time,
                                                                query_from,
                                                                query_to,
                                                                step_0_timestamp,
@@ -1120,7 +1134,7 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
                                tuple(params))
         
     def insert_forecast_data(self,
-                             insert_iterator : Iterable[Sequence[int,
+                             insert_iterator: Iterable[Sequence[int,
                                                                  datetime,
                                                                  datetime,
                                                                  int,
@@ -1142,6 +1156,7 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
         ***Note:
         The insert operation is actually an upsert, not an "insert or update"
         """
+
         def get_iter() -> Tuple[int,
                                 datetime,
                                 datetime,
@@ -1176,14 +1191,13 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
             con.executemany(sql,
                             get_iter())
         
-    
-        
     def create_tables(self) -> None:
         self.create_forecast_time_series_table()
         
     def create_tables_and_triggers(self) -> None:
         self.create_forecast_geometry_tables_and_triggers()
         self.create_tables()
+
         
 if __name__ == "__main__":
     import os
