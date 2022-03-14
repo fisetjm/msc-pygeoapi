@@ -891,7 +891,7 @@ class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
                              station_identifier : str = None,
                              latitude : float = None,
                              longitude : float = None,
-                             geometry : str = None):
+                             geometry : str = None) -> None:
         """
         Assuming the geometry is GeoJSON
         """
@@ -916,14 +916,14 @@ class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
                           SET 
                               latitude=excluded.latitude
                               longitude=excluded.longitude
-                              geometry={geo_insert_sql}
+                              geometry=excluded.geometry
                       ;
                   """
     
     def insert_station_basin(self,
                              station_id : int = None,
                              station_identifier : str = None,
-                             geometry : str = None):
+                             geometry : str = None) -> None:
         """
         Assuming the geometry is GeoJSON
         """
@@ -935,21 +935,16 @@ class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
                 # Upsert ok, not there or not the same geometry
                 geo_insert_sql = self.get_geom_insert_sql(geometry)
                 sql = f"""INSERT INTO
-                            {self.forecast_station_name}(station_id,
-                                                         geometry
-                                                        )
+                            {self.forecast_basin_name}(station_id,
+                                                       geometry
+                                                      )
                           VALUES(station_id,
                                  {geo_insert_sql})
                           ON CONFLICT DO UPDATE
                           SET 
-                              latitude=excluded.latitude
-                              longitude=excluded.longitude
-                              geometry={geo_insert_sql}
+                              geometry=excluded.geometry
                       ;
                   """      
-                       
-    def insert_station_location(self):
-        pass
             
     def create_forecast_geometry_tables(self) -> None:
         self.create_forecast_station_table()
@@ -961,7 +956,7 @@ class ForecastMinimalGeometryDBUtil(SQLiteWithStationAndTrigger,
         self.create_forecast_basin_update_trigger()
         self.create_forecast_station_update_trigger()
         
-    def create_forecast_geometry_tables_and_triggers(self):
+    def create_forecast_geometry_tables_and_triggers(self) -> None:
         self.create_station_table()
         self.create_forecast_geometry_tables()
         self.create_forecast_geometry_triggers()
@@ -982,7 +977,7 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
       as well as support for many formats.
     """
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         #self.forecast_station_name = 'ForecastStation'
         #self.forecast_basin_name = 'ForecastBasin'
         super().__post_init__()
@@ -990,7 +985,7 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
     #===========================================================================
     # BASE TABLES
     #===========================================================================
-    def create_forecast_time_series_table(self):
+    def create_forecast_time_series_table(self) -> None:
         with self.connect() as con:
             sql = """
                   CREATE TABLE IF NOT EXISTS ForecastTimeSeries(
@@ -1147,13 +1142,13 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
         ***Note:
         The insert operation is actually an upsert, not an "insert or update"
         """
-        def get_iter() -> Sequence[int,
-                                  datetime,
-                                  datetime,
-                                  int,
-                                  int,
-                                  datetime,
-                                  float]:
+        def get_iter() -> Tuple[int,
+                                datetime,
+                                datetime,
+                                int,
+                                int,
+                                datetime,
+                                float]:
             """
             Making sure we send the correct data format to the executemany command
             """

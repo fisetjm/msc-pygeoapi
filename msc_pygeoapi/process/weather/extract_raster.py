@@ -609,7 +609,7 @@ try:
              """
 
             BaseProcessor.__init__(self, provider_def, PROCESS_METADATA)
-
+        
         def execute(self, data):
             model = data["model"]
             forecast_hours_ = data["forecast_hours_"]
