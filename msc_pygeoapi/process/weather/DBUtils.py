@@ -1005,12 +1005,13 @@ class ForecastDBUtil(ForecastMinimalGeometryDBUtil):
                   CREATE TABLE IF NOT EXISTS ForecastTimeSeries(
                       station_id INTEGER REFERENCES Station(id),
                       file_creation_time TIMESTAMP,
+                      model TEXT,
                       step_0_timestamp TIMESTAMP,
                       run INTEGER,
                       step INTEGER,
                       forecast_timestamp TIMESTAMP,
                       forecast_value REAL,
-                      PRIMARY KEY (station_id,step_0_timestamp,run,step)
+                      PRIMARY KEY (station_id,model,step_0_timestamp,run,step)
                   )
                   """
             con.execute(sql)
